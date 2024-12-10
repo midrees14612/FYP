@@ -1,0 +1,152 @@
+﻿@page "/login"
+@using BlazorServerAuthenticationAndAuthorization.Authentication
+@using BlazorServerAuthenticationAndAuthorization.Model
+@using BlazorServerAuthenticationAndAuthorization.Data
+@inject UserAccountService UserAccountService
+@inject CustomAuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager Navigation
+
+<EditForm Model="loginUser" OnValidSubmit="HandleValidSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="login-container">
+        <h2>Login</h2>
+        <div>
+            <label>Username:</label>
+            <InputText @bind-Value="loginUser.UserName" />
+        </div>
+        <div>
+            <label>Password:</label>
+            <InputText @bind-Value="loginUser.Password" type="password" />
+        </div>
+        <button type="submit" class="login-button">Login</button>
+        <div class="register-link">
+            <a href="/register">Don't have an account? Register here</a>
+        </div>
+        @if (!string.IsNullOrEmpty(loginMessage))
+
+        {
+            <div class="error-message">@loginMessage</div>
+        }
+    </div>
+</EditForm>
+
+@code {
+    private UserInfo loginUser = new UserInfo();
+
+    private string loginMessage = string.Empty;
+
+
+
+    private async Task HandleValidSubmit()
+
+    {
+
+        if (string.IsNullOrEmpty(loginUser.UserName) || string.IsNullOrEmpty(loginUser.Password))
+
+        {
+
+            loginMessage = "Username and password are required.";
+
+            return;
+
+        }
+
+
+
+        var user = await UserAccountService.GetByUserNameAsync(loginUser.UserName);
+
+
+
+        if (user != null && user.Password == loginUser.Password)
+
+        {
+
+            var userSession = new UserSession
+                {
+                    UserName = user.UserName,
+                    Email = user.Email, // Add Email to the session
+                    Role = user.Role
+                };
+
+
+
+            await AuthenticationStateProvider.UpdateAuthenticationState(userSession);
+
+            Navigation.NavigateTo("/");
+
+        }
+
+        else
+
+        {
+
+            loginMessage = "Invalid username or password.";
+
+        }
+
+    }
+}
+
+<style>
+    .login-container {
+        max-width: 400px;
+        margin: 0 auto;
+        padding: 20px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+        .login-container h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .login-container label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .login-container input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+
+    .login-button {
+        width: 100%;
+        padding: 10px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+    }
+
+        .login-button:hover {
+            background-color: #0056b3;
+        }
+
+    .register-link {
+        text-align: center;
+        margin-top: 10px;
+    }
+
+        .register-link a {
+            color: #007bff;
+            text-decoration: none;
+        }
+
+            .register-link a:hover {
+                text-decoration: underline;
+            }
+
+    .error-message {
+        color: red;
+        margin-top: 5px;
+    }
+</style>

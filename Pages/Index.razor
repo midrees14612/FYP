@@ -1,0 +1,331 @@
+﻿@page "/"
+@using BlazorServerAuthenticationAndAuthorization.Model
+@using BlazorServerAuthenticationAndAuthorization.Services
+@inject BookService BookService
+@using System.Security.Claims
+@inject IJSRuntime js
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Index</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <h1>Hello, @context.User.Identity?.Name!</h1>
+    </Authorized>
+    <NotAuthorized>
+       
+    </NotAuthorized>
+</AuthorizeView>
+
+<div class="main-home">
+
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <div class="search-filter-container">
+            <!-- Search Bar -->
+            <input type="text" placeholder="Search for books..." @bind="searchTerm" class="search-input" />
+            <button class="btn-search" @onclick="SearchBooks">Search</button>
+        </div>
+
+        <!-- Filter Categories -->
+        <div class="filter-container">
+            <!-- Location Selection -->
+            <div class="filter-location">
+                <label for="city-filter">Select your city:</label>
+                <select id="city-filter" @onchange="FilterByCity" class="city-dropdown">
+                    <option value="">All</option>
+                    <option value="KPK">KPK</option>
+                    <option value="Punjab">Punjab</option>
+                    <option value="Lahore">Lahore</option>
+                    <option value="Islamabad">Islamabad</option>
+                    <option value="Sindh">Sindh</option>
+                </select>
+            </div>
+
+            <!-- Category Selection -->
+            <div class="filter-category">
+                <label for="category-filter">Filter by Category:</label>
+                <select id="category-filter" @onchange="FilterByCategory" class="category-dropdown">
+                    <option value="">All</option>
+                    <option value="Generic">Generic</option>
+                    <option value="Novels">Novels</option>
+                    <option value="Science">Science</option>
+                    <option value="Religion">Religion</option>
+                    <option value="Technology">Technology</option>
+                </select>
+            </div>
+        </div>
+    </section>
+</div>
+
+<div class="row">
+    @if (filteredBooks != null && filteredBooks.Count > 0)
+    {
+        @foreach (var book in filteredBooks)
+        {
+            <div class="col-md-4">
+                <div class="card mb-4">
+                    @if (!string.IsNullOrEmpty(book.ImagePath))
+                    {
+                        <img src="@book.ImagePath" class="card-img-top" alt="Book Image" />
+                    }
+                    <div class="card-body">
+                        <p class="card-text"><strong>Book Name:</strong> @book.BookName</p>
+                        <p class="card-title"><strong>ISBN:</strong> @book.ISBN</p>
+                        <p class="card-text"><strong>Author:</strong> @book.Author</p>
+                        <p class="card-text"><strong>Publisher:</strong> @book.Publisher</p>
+                        <p class="card-text"><strong>Edition:</strong> @book.Edition</p>
+                        <p class="card-text"><strong>Condition:</strong> @book.Condition</p>
+                        <p class="card-text"><strong>Category:</strong> @book.Category</p>
+                        <p class="card-text"><strong>Price:</strong> @string.Format(System.Globalization.CultureInfo.CurrentCulture, "{0:C}", book.Price)</p>
+                        <p class="card-text"><strong>Cell No:</strong> @book.CellNo</p>
+                        @if (book.IsExchangeable)
+                        {
+                            <div class="exchange-label">Exchangeable</div>
+                            <p class="card-text"><strong>Exchangeable With:</strong> @book.ExchangeBookName</p>
+                        }
+                        <NavLink href="@($"/buynow/{book.Id}")" class="btn btn-primary">View Details</NavLink>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="col-12">
+            <div class="alert alert-warning text-center" role="alert">
+                No books available.
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Book>? books;           // All books
+    private List<Book>? filteredBooks;  // Filtered books for search
+    private string? searchTerm;         // User's search input
+    private string? selectedCategory;   // Selected category for filtering
+    private string? selectedCity;       // Selected city for filtering
+
+    protected override async Task OnInitializedAsync()
+    {
+        books = await BookService.GetAllBooksAsync();
+        filteredBooks = books; // Show all books by default
+    }
+
+    private void SearchBooks()
+    {
+        if (string.IsNullOrWhiteSpace(searchTerm))
+        {
+            filteredBooks = books; // Reset to show all books
+        }
+        else
+        {
+            filteredBooks = books
+                .Where(book => !string.IsNullOrEmpty(book.BookName) &&
+                               book.BookName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+    }
+
+    private void FilterByCategory(ChangeEventArgs e)
+    {
+        selectedCategory = e.Value?.ToString();
+        if (string.IsNullOrEmpty(selectedCategory))
+        {
+            filteredBooks = books; // Show all books
+        }
+        else
+        {
+            filteredBooks = books
+                .Where(book => !string.IsNullOrEmpty(book.Category) &&
+                               book.Category.Equals(selectedCategory, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+    }
+
+    private async void FilterByCity(ChangeEventArgs e)
+    {
+        selectedCity = e.Value?.ToString();
+        if (string.IsNullOrEmpty(selectedCity))
+        {
+            filteredBooks = books; // Show all books
+        }
+        else
+        {
+            filteredBooks = await BookService.GetBooksByCityAsync(selectedCity);
+        }
+    }
+
+    [CascadingParameter]
+    private Task<AuthenticationState> authenticationState { get; set; }
+
+    private async Task DisplayGreetingAlert()
+    {
+        var authState = await authenticationState;
+        var message = $"Hello {authState.User.Identity?.Name}";
+        await js.InvokeVoidAsync("alert", message);
+    }
+}
+
+<style>
+    /* Main container */
+    .main-home {
+        font-family: Arial, sans-serif;
+        padding: 20px;
+    }
+
+    /* Hero Section Styling */
+    .hero-section {
+        margin: 40px 0;
+        text-align: center;
+    }
+
+    .search-filter-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+
+    /* Search Bar Styling */
+    .search-input {
+        padding: 10px;
+        width: 40%;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        font-size: 16px;
+    }
+
+    .btn-search {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        cursor: pointer;
+        border-radius: 5px;
+        transition: background-color 0.3s;
+    }
+
+        .btn-search:hover {
+            background-color: #0056b3;
+        }
+
+    /* Filter Categories Styling */
+    .filter-container {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        margin-top: 20px;
+    }
+
+    .filter-location, .filter-category {
+        flex: 1;
+    }
+
+    .filter-location {
+        text-align: left;
+    }
+
+    .filter-category {
+        text-align: right;
+    }
+
+        .filter-location label, .filter-category label {
+            font-size: 18px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+    .city-dropdown, .category-dropdown {
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        font-size: 16px;
+        background-color: #f8f9fa;
+        cursor: pointer;
+        transition: background-color 0.3s, border-color 0.3s;
+    }
+
+        .city-dropdown:hover, .category-dropdown:hover {
+            background-color: #e9ecef;
+            border-color: #b3b3b3;
+        }
+
+    /* Card Styling */
+    .row {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 20px;
+    }
+
+    .col-md-4 {
+        flex: 1 1 calc(33.333% - 20px); /* Adjust for gap */
+        max-width: calc(33.333% - 20px); /* Adjust for gap */
+    }
+
+    .card {
+        width: 100%;
+        border: 1px solid #ddd;
+        padding: 10px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        background-color: white;
+        text-align: center;
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+        position: relative;
+    }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        }
+
+    .card-title {
+        font-size: 20px;
+        margin: 10px 0;
+    }
+
+    /* Remove underlines from card text */
+    .card-text {
+        text-decoration: none;
+        color: inherit;
+        margin: 5px 0; /* Add margin between lines */
+    }
+
+        .card-text strong {
+            font-weight: bold;
+            text-decoration: none;
+            color: inherit;
+        }
+
+    /* Ensure no underlines in the main home section */
+    .main-home a {
+        text-decoration: none;
+        color: inherit;
+    }
+
+        .main-home a:hover {
+            text-decoration: none;
+            color: inherit;
+        }
+
+    /* Exchange Label Styling */
+    .exchange-label {
+        background-color: #ffeb3b;
+        color: white;
+        padding: 5px;
+        border-radius: 5px;
+        font-size: 14px;
+        font-weight: bold;
+        position: absolute;
+        top: 10px;
+        left: 10px;
+    }
+</style>
+
+<SurveyPrompt Title="How is Blazor working for you?" />
