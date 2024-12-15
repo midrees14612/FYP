@@ -89,7 +89,6 @@ namespace BlazorServerAuthenticationAndAuthorization.Services
                 .ToListAsync();
         }
 
-
         public async Task<List<Book>> GetNearbyBooksAsync(double userLatitude, double userLongitude, double maxDistanceKm)
         {
             var earthRadiusKm = 6371;
@@ -115,10 +114,15 @@ namespace BlazorServerAuthenticationAndAuthorization.Services
 
         public async Task<List<Book>> GetBooksByCityAsync(string city)
         {
-            return await _context.Books
+            var books = await _context.Books
                 .Include(b => b.UserInfo)
                 .Where(b => b.City == city)
                 .ToListAsync();
+
+            // Debugging statement
+            Console.WriteLine($"Filtered books by city '{city}': {books.Count} books found.");
+
+            return books;
         }
 
         private double CalculateDistance(double lat1, double lon1, double lat2, double lon2, double radius)

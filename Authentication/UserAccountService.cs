@@ -70,6 +70,7 @@ namespace BlazorServerAuthenticationAndAuthorization.Authentication
             }
         }
 
+
         public async Task<Book?> GetBookByIdAsync(int id)
         {
             return await _context.Books

@@ -36,10 +36,14 @@ namespace BlazorServerAuthenticationAndAuthorization.Data
                 .Property(b => b.ProfilePicture)
                 .HasMaxLength(255);
 
+            
+
             modelBuilder.Entity<Book>()
                 .HasOne(b => b.UserInfo)
                 .WithMany(u => u.Books)
                 .HasForeignKey(b => b.UserId);
+
+
         }
     }
 }

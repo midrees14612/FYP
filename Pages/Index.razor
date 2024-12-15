@@ -13,36 +13,24 @@
         <h1>Hello, @context.User.Identity?.Name!</h1>
     </Authorized>
     <NotAuthorized>
-       
+
     </NotAuthorized>
 </AuthorizeView>
 
 <div class="main-home">
-
     <!-- Hero Section -->
     <section class="hero-section">
         <div class="search-filter-container">
-            <!-- Search Bar -->
             <input type="text" placeholder="Search for books..." @bind="searchTerm" class="search-input" />
             <button class="btn-search" @onclick="SearchBooks">Search</button>
         </div>
 
-        <!-- Filter Categories -->
         <div class="filter-container">
-            <!-- Location Selection -->
             <div class="filter-location">
-                <label for="city-filter">Select your city:</label>
-                <select id="city-filter" @onchange="FilterByCity" class="city-dropdown">
-                    <option value="">All</option>
-                    <option value="KPK">KPK</option>
-                    <option value="Punjab">Punjab</option>
-                    <option value="Lahore">Lahore</option>
-                    <option value="Islamabad">Islamabad</option>
-                    <option value="Sindh">Sindh</option>
-                </select>
+                <label for="city-filter">Search City:</label>
+                <input type="text" id="city-filter" @bind="selectedCity" @oninput="FilterByCity" class="city-input" placeholder="Enter city name" />
             </div>
 
-            <!-- Category Selection -->
             <div class="filter-category">
                 <label for="category-filter">Filter by Category:</label>
                 <select id="category-filter" @onchange="FilterByCategory" class="category-dropdown">
@@ -59,9 +47,9 @@
 </div>
 
 <div class="row">
-    @if (filteredBooks != null && filteredBooks.Count > 0)
+    @if (paginatedBooks != null && paginatedBooks.Count > 0)
     {
-        @foreach (var book in filteredBooks)
+        @foreach (var book in paginatedBooks)
         {
             <div class="col-md-4">
                 <div class="card mb-4">
@@ -100,17 +88,82 @@
     }
 </div>
 
+<!-- Pagination Controls -->
+@if (filteredBooks != null && filteredBooks.Count > 0)
+{
+    <div class="pagination-container">
+        <button class="btn btn-secondary" @onclick="PreviousPage" disabled="@(currentPage == 1)">Previous</button>
+        <span class="page-info">Page @currentPage of @TotalPages</span>
+        <button class="btn btn-secondary" @onclick="NextPage" disabled="@(currentPage == TotalPages)">Next</button>
+    </div>
+}
+
 @code {
     private List<Book>? books;           // All books
     private List<Book>? filteredBooks;  // Filtered books for search
+    private List<Book>? paginatedBooks; // Books to display on current page
     private string? searchTerm;         // User's search input
     private string? selectedCategory;   // Selected category for filtering
     private string? selectedCity;       // Selected city for filtering
+
+    // Pagination variables
+    private int currentPage = 1;
+    private const int BooksPerPage = 12;
+
+    // Corrected TotalPages calculation
+    private int TotalPages
+    {
+        get
+        {
+            // Ensure filteredBooks is not null and handle the case when it's empty
+            if (filteredBooks == null)
+                return 0;
+
+            return (int)Math.Ceiling((double)filteredBooks.Count / BooksPerPage);
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
         books = await BookService.GetAllBooksAsync();
         filteredBooks = books; // Show all books by default
+        UpdatePaginatedBooks();
+    }
+
+    private void UpdatePaginatedBooks()
+    {
+        if (filteredBooks == null || !filteredBooks.Any())
+        {
+            paginatedBooks = new List<Book>();
+            return;
+        }
+
+        // Calculate the start index for the current page
+        int startIndex = (currentPage - 1) * BooksPerPage;
+
+        // Take 12 books (or fewer if near the end of the list)
+        paginatedBooks = filteredBooks
+            .Skip(startIndex)
+            .Take(BooksPerPage)
+            .ToList();
+    }
+
+    private void NextPage()
+    {
+        if (currentPage < TotalPages)
+        {
+            currentPage++;
+            UpdatePaginatedBooks();
+        }
+    }
+
+    private void PreviousPage()
+    {
+        if (currentPage > 1)
+        {
+            currentPage--;
+            UpdatePaginatedBooks();
+        }
     }
 
     private void SearchBooks()
@@ -126,6 +179,10 @@
                                book.BookName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
                 .ToList();
         }
+
+        // Reset to first page and update paginated books
+        currentPage = 1;
+        UpdatePaginatedBooks();
     }
 
     private void FilterByCategory(ChangeEventArgs e)
@@ -142,9 +199,13 @@
                                book.Category.Equals(selectedCategory, StringComparison.OrdinalIgnoreCase))
                 .ToList();
         }
+
+        // Reset to first page and update paginated books
+        currentPage = 1;
+        UpdatePaginatedBooks();
     }
 
-    private async void FilterByCity(ChangeEventArgs e)
+    private void FilterByCity(ChangeEventArgs e)
     {
         selectedCity = e.Value?.ToString();
         if (string.IsNullOrEmpty(selectedCity))
@@ -153,8 +214,22 @@
         }
         else
         {
-            filteredBooks = await BookService.GetBooksByCityAsync(selectedCity);
+            filteredBooks = books
+                .Where(book => !string.IsNullOrEmpty(book.City) &&
+                               book.City.Contains(selectedCity, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            Console.WriteLine($"Filtered by city: {selectedCity}, Number of books: {filteredBooks.Count}");
+
+            // Debugging: Log the filtered books
+            foreach (var book in filteredBooks)
+            {
+                Console.WriteLine($"Book: {book.BookName}, City: {book.City}");
+            }
         }
+
+        // Reset to first page and update paginated books
+        currentPage = 1;
+        UpdatePaginatedBooks();
     }
 
     [CascadingParameter]
@@ -239,7 +314,7 @@
             margin-right: 10px;
         }
 
-    .city-dropdown, .category-dropdown {
+    .city-input, .category-dropdown {
         padding: 10px;
         border: 1px solid #ccc;
         border-radius: 5px;
@@ -249,7 +324,7 @@
         transition: background-color 0.3s, border-color 0.3s;
     }
 
-        .city-dropdown:hover, .category-dropdown:hover {
+        .city-input:hover, .category-dropdown:hover {
             background-color: #e9ecef;
             border-color: #b3b3b3;
         }
@@ -325,6 +400,35 @@
         position: absolute;
         top: 10px;
         left: 10px;
+    }
+
+    /* Pagination Styles */
+    .pagination-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-top: 20px;
+        gap: 15px;
+    }
+
+        .pagination-container .btn {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+            .pagination-container .btn:disabled {
+                background-color: #6c757d;
+                cursor: not-allowed;
+            }
+
+    .page-info {
+        font-size: 16px;
+        font-weight: bold;
     }
 </style>
 

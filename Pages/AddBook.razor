@@ -71,7 +71,14 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">City</label>
-                        <input type="text" class="form-control" @bind="newBook.City" />
+                        <select class="form-control" @bind="newBook.City">
+                            <option value="" disabled>Select City</option>
+                            <option value="KPK">KPK</option>
+                            <option value="Punjab">Punjab</option>
+                            <option value="Lahore">Lahore</option>
+                            <option value="Islamabad">Islamabad</option>
+                            <option value="Sindh">Sindh</option>
+                        </select>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Exchangeable</label>
@@ -173,7 +180,6 @@
             }
         }
     }
-
 
     private void CloseEditModal()
     {
